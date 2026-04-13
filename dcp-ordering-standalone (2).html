@@ -1,0 +1,903 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <title>Dynamic Custom Pools — Material & Equipment Ordering</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.9/babel.min.js"></script>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: { stone: { 50:'#fafaf9',100:'#f5f5f4',200:'#e7e5e4',300:'#d6d3d1',400:'#a8a29e',500:'#78716c',600:'#57534e',700:'#44403c',800:'#292524',900:'#1c1917' },
+                    amber: { 50:'#fffbeb',100:'#fef3c7',200:'#fde68a',300:'#fcd34d',400:'#fbbf24',500:'#f59e0b',600:'#d97706',700:'#b45309',800:'#92400e',900:'#78350f' },
+                    green: { 50:'#f0fdf4',100:'#dcfce7',400:'#4ade80',700:'#15803d' },
+                    red: { 50:'#fef2f2',100:'#fee2e2',400:'#f87171',700:'#b91c1c' } }
+        }
+      }
+    }
+  </script>
+  <style>
+    * { -webkit-tap-highlight-color: transparent; }
+    html, body { margin: 0; padding: 0; overscroll-behavior: none; }
+    .animate-spin { animation: spin 1s linear infinite; }
+    .animate-pulse { animation: pulse 2s cubic-bezier(0.4,0,0.6,1) infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    @keyframes pulse { 0%,100% { opacity:1; } 50% { opacity:.5; } }
+
+    /* Desktop: show in a centered web-friendly container */
+    @media (min-width: 640px) {
+      body {
+        background: #e8e0d8;
+        min-height: 100vh;
+        padding: 0;
+      }
+      #root {
+        width: 100%;
+        max-width: 720px;
+        min-height: 100vh;
+        margin: 0 auto;
+        background: linear-gradient(160deg,#f5f0eb 0%,#e8e0d8 100%);
+        box-shadow: 0 0 40px rgba(0,0,0,0.08);
+        position: relative;
+        overflow-x: hidden;
+      }
+      /* Keep fullscreen modals contained within the app width */
+      #root .fixed { position: absolute !important; max-width: 720px; }
+    }
+
+    /* Mobile: normal full-screen */
+    @media (max-width: 639px) {
+      body { background: #f5f0eb; }
+    }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+  <script type="text/babel">
+const { useState, useCallback, useMemo, useRef, useEffect } = React;
+
+/* ═══════ TILE CATALOGS ═══════ */
+const AB={"Aloha":["Oahu","Kona","Maui"],"Aqua":["Arctic Frost","Bali","Obsidian"],"Artista":["Raphael","Dali","Gaudi","Goya","Picasso"],"Aurora Borealis":["Marvel","Crystal","Magic","Mystic"],"Britannia":["Cathedral","Dover","Stonehenge","Yorkshire"],"Constellations":["Leo","Aquarius","Aries","Scorpio","Virgo"],"Design":["Blue Blend"],"Espania":["Alicante","Granada","Leon"],"Explorer":["Columbus","Magellan","Polo"],"Fireglass":["Fire 1","Fire 2","Fire 3","Fire 4"],"Fjord":["FJ-1198"],"Flora":["Periwinkle","Dahlia","Iris","Jasmine"],"London":["LS-1171"],"Lunar":["Crescent","Eclipse","Half Moon","New Moon"],"Manhattan":["Penn Station","Broadway","Central Park","Hudson"],"Monet":["MS-1282"],"Night Life":["Gallant","Ballad","Soul Blend","Rhythm"],"North Seas":["NS-110"],"Odyssey":["Athens","Crete","Mykonos","Santorini"],"Paradise":["Eden","Lagoon","Oasis"],"Pool Gems":["PG-116"],"Riviera":["Monaco","Cannes","Nice","St. Tropez"],"Shimmer":["Bermuda","Aruba","Tahiti"],"Southern Isles":["SIS-1101"],"Starlight":["Nebula","Comet","Nova"],"Tidal Wave":["TW-3395"],"Abyss":["Alexandria","Atlantis","Port Royal","Thonis","Tikal"],"Agate":["Jasper","Larimar"],"Ardesia":["White","Bone"],"Atlantic":["Deepwater","Inlet"],"Aztec":["Blue"],"Beachfront":["Balboa","Coronado","Crystal Cove","La Jolla","Laguna","Malibu","Newport","Palisades","Santa Monica"],"Bora Bora":["Coral","Marina"],"Canopy":["Midnight Sky","Denim","Emerald"],"Canvas":["Mishima"],"Caribbean":["Grand Canyon"],"Cascade":["CS-691"],"Castile":["Cordoba Blue","Cordoba Gray","Madrid Blue","Madrid Gray","Seville Blue","Seville Gray","Toledo Blue","Toledo Gray","Valencia"],"Chateau":["Lyon Sky","Lyon Wind"],"Cirrus":["Azul"],"Empire":["Inca","Mayan"],"Gemstones":["Lapis","Oyster","Turquoise"],"Greek Isles":["Crete"],"High Seas":["Castaway","Treasure"],"Him.":["Annapurna"],"Himalaya":["Ascent","Everest","Katmandu","Nepal","Summit"],"Italian Slate":["Firenze","Milan","Naples","San Marino"],"Key West":["Catamaran","Lighthouse","Martello"],"Komodo":["Deep Blue"],"Lakes":["Havasu"],"Lifestyle":["White"],"Summit":["Ridge"],"Cayman":["Lyon"],"Colonial Brick Blend":["Williamsburg","Jamestown"],"Crystaline":["Surf"],"Fusion":["Blend"],"Harmony":["Blend"],"Ocean Breeze":["Seascape","Blend","Windstream"],"Olympus":["Poseidon","Adonis","Apollo","Ares","Athena","Zeus"],"South Pacific":["Mariana","Tonga"],"Terrain":["TR-263"],"Typhoon":["Fiji","Bali","Blend","Samoa"],"Unglazed":["Cobalt Blue","Arctic White","Black"],"Voyage":["Anchor","Narrows","Reef"]};
+const AB_G={"Glass Mosaics":["Aloha","Aqua","Artista","Aurora Borealis","Britannia","Constellations","Design","Espania","Explorer","Fireglass","Fjord","Flora","London","Lunar","Manhattan","Monet","Night Life","North Seas","Odyssey","Paradise","Pool Gems","Riviera","Shimmer","Southern Isles","Starlight","Tidal Wave"],"Porcelain Tile":["Abyss","Agate","Ardesia","Atlantic","Aztec","Beachfront","Bora Bora","Canopy","Canvas","Caribbean","Cascade","Castile","Chateau","Cirrus","Empire","Gemstones","Greek Isles","High Seas","Him.","Himalaya","Italian Slate","Key West","Komodo","Lakes","Lifestyle","Summit"],"Porcelain Mosaics":["Cayman","Colonial Brick Blend","Crystaline","Fusion","Harmony","Ocean Breeze","Olympus","South Pacific","Terrain","Typhoon","Unglazed","Voyage"]};
+const NPT={"Sea Ice":["Arctic","Glacier","Polar","Iridescent Blend"],"Equinox":["Autumn","Spring","Summer","Winter"],"Lightwaves":["Aquamarine","Azure","Sapphire","Turquoise"],"Jules":["Rustic Blend","Beach Blend","Coastal Blend","Deep Blue"],"Opal":["Fire","Ice","Sky","Water"],"Cosmopolitan":["Latte Silver","Blue Steel","Emerald","Midnight"],"Soleil":["Dawn","Dusk","Noon","Twilight"],"Starburst":["Aqua","Blue","Green","White"],"Sea Glass":["Aqua","Blue","Green","White"],"Beach Entry":["Blue","Sand","Sea Foam","White"],"Mermaid":["Aqua","Blue","Green","Iridescent"],"Marquise":["Blue","Crystal","Gold","Silver"],"OceanScapes":["Mavericks Border","Pacific","Atlantic","Metallic Sheer"],"Aquascapes":["Blue","Green","Turquoise"],"6x6 Solids":["Black","White","Blue","Cobalt","Dark Blue","Light Blue","Teal","Gray","Bone","Beige"],"Discovery Field":["Blue","Cobalt","Gray","White"],"Elements":["Dark Gray","Charcoal","Graphite","Slate"],"Slate":["Ash","Blue Gray","Charcoal","Natural"],"Elemental":["Blue","Earth","Gray","Sand"],"Gemstone":["Blue","Blue Deco","Emerald","Turquoise"],"Firestone":["Ash","Ember","Flame","Smoke"],"Sierra Blue Slate":["Blue","Gray","Natural","Rust"],"Veracruz":["Bone","Gold","Walnut"],"Waterfall":["Angel","Cloud","Crystal"],"Tulipwood":["Brown","Gray","Natural","White"],"FMU Large Format":["Dark Brown","Dark Gray","Natural"],"Keys":["Blue Blend","Green Blend","Turquoise Blend"],"Melody":["Cobalt Blue","Navy","Sky"],"Scents":["White","Bone","Gray"],"Safari":["Multicolor","Blue","Brown"],"Inaka":["Blue","Gray","Blue-Gray Blend"],"Ellada":["Blue Border","Blue Pattern","Classic"],"Aztec Deco":["Blue","Cobalt","Turquoise"],"Gemstone Deco":["Blue","Emerald","Turquoise"],"Moonbeam":["Blue","Iridescent","Silver"],"Luciana":["Blue","Gold","Green"],"Unglazed Series":["Raven Black","Cobalt","Dark Blue","Black","White","Gray"]};
+const NPT_G={"Glass":["Sea Ice","Equinox","Lightwaves","Jules","Opal","Cosmopolitan","Soleil","Starburst","Sea Glass","Beach Entry","Mermaid","Marquise","OceanScapes","Aquascapes"],"Porcelain & Stone Look":["6x6 Solids","Discovery Field","Elements","Slate","Elemental","Gemstone","Firestone","Sierra Blue Slate","Veracruz","Waterfall","Tulipwood","FMU Large Format","Keys","Melody","Scents","Safari","Inaka","Ellada","Aztec Deco","Gemstone Deco","Moonbeam","Luciana"],"Unglazed":["Unglazed Series"]};
+
+/* ═══════ COPING CATALOGS ═══════ */
+const AB_COPING = ["Athens","Blue Stone","Dark Noce","Diana Royal","Glacier","Ivory","Shellstone","Silver","Silver Pearl"];
+const NPT_COPING_TRAV = ["Ivory","Silver","Light Noce","Noce","Scabos","Philadelphia","Walnut"];
+const NPT_COPING_MARBLE = ["White Marble","Perlato","Aegean Pearl"];
+const NPT_COPING_LIME = ["Cardinal","Seashell","Blue Select"];
+const NPT_COPING_G = {"Travertine": NPT_COPING_TRAV, "Marble": NPT_COPING_MARBLE, "Limestone": NPT_COPING_LIME};
+
+/* ═══════ RAISED SURFACE / VENEER CATALOGS ═══════ */
+const AB_VENEER = {
+  "Split Face Mosaic": ["Silver","Ivory","Noce","Harmony","Blue Stone Marble","White Stone","Ice White Marble","Diana Royal"],
+  "Ledgerstone": ["Antico","Athens","Blue Stone","Diana Royal","Glacier","Ivory","Noce","Shellstone","Silver","Silver Pearl"],
+  "Veneer Panels": ["Athens","Blue Stone","Diana Royal","Glacier","Ivory","Silver","Silver Pearl"],
+  "Porcelain Ledger": ["Lumber","Voyage","Brickstone"],
+};
+const NPT_VENEER = {
+  "Travertine Split Face": ["Ivory","Silver","Noce","Scabos","Walnut"],
+  "Marble Split Face": ["White","Gray"],
+  "VN Marble Panel": ["Nero","Bianco"],
+  "Stacked Stone Panel": ["Ivory","Silver","Noce","Mixed"],
+  "Travertine Ledger": ["Ivory","Silver","Noce","Scabos"],
+};
+
+const SUPS = ["Aqua Bella","NPT (National Pool Tile)"];
+const T_SZ = ["6x6","1x2","1x1","2x2","2x4","2x6","3x3","6x18","6x36","12x12","12x24","Other"];
+const C_SZ = ["12x12","12x24","16x24","4x12","12x18"];
+const C_ED = ["Paver","Bullnose","Double bullnose"];
+const S_SZ = ["2x4","2x2","1x2","6x24","Ledgerstone"];
+const OV = 1.15;
+const tsf = l => l / 2;
+const cpcs = (l,s,e) => { if (!s||s==="Other"||s==="Ledgerstone") return 0; const[,h]=s.split("x").map(Number); return Math.ceil(l/(h/12))*(e==="Double bullnose"&&(s==="12x12"||s==="12x24")?2:1); };
+const csf = (l,s,e) => { if (!s||s==="Other"||s==="Ledgerstone") return 0; const[w]=s.split("x").map(Number); return l*(w/12)*(e==="Double bullnose"&&(s==="12x12"||s==="12x24")?2:1); };
+const gCat = s => s==="NPT (National Pool Tile)"?NPT:AB;
+const gGrp = s => s==="NPT (National Pool Tile)"?NPT_G:AB_G;
+
+/* ═══════ FULLSCREEN SEARCH MODAL ═══════ */
+function SearchModal({ open, onClose, onSelect, title, groupedOptions, options, value }) {
+  const [q, setQ] = useState("");
+  const ref = useRef(null);
+  useEffect(() => { if (open) { setQ(""); setTimeout(() => ref.current?.focus(), 100); } }, [open]);
+  const filtered = useMemo(() => {
+    const s = q.toLowerCase();
+    if (groupedOptions) {
+      const r = [];
+      Object.entries(groupedOptions).forEach(([g, it]) => { const m = it.filter(i => i.toLowerCase().includes(s)); if (m.length) r.push({ group: g, items: m }); });
+      return r;
+    }
+    return (options || []).filter(o => o.toLowerCase().includes(s));
+  }, [q, options, groupedOptions]);
+  if (!open) return null;
+  const pick = v => { onSelect(v); onClose(); };
+  return (
+    <div className="fixed inset-0 z-50 bg-white flex flex-col" style={{ paddingTop: "env(safe-area-inset-top)" }}>
+      <div className="flex items-center gap-3 px-4 py-3 border-b border-stone-200 bg-stone-50">
+        <button onClick={onClose} className="w-10 h-10 flex items-center justify-center rounded-full text-stone-500 active:bg-stone-200 text-xl flex-shrink-0">←</button>
+        <div className="flex-1 relative">
+          <input ref={ref} value={q} onChange={e => setQ(e.target.value)} placeholder={`Search ${title.toLowerCase()}...`}
+            className="w-full pl-10 pr-10 py-3 bg-white border border-stone-200 rounded-xl outline-none focus:ring-2 focus:ring-amber-400 focus:border-transparent"
+            style={{ fontSize: 16 }} autoComplete="off" autoCorrect="off" autoCapitalize="off" spellCheck="false" />
+          <svg className="absolute left-3 top-1/2 -translate-y-1/2 text-stone-400" width="18" height="18" viewBox="0 0 18 18" fill="none"><circle cx="8" cy="8" r="5.5" stroke="currentColor" strokeWidth="1.5" /><path d="M12.5 12.5l3 3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" /></svg>
+          {q && <button onClick={() => setQ("")} className="absolute right-3 top-1/2 -translate-y-1/2 text-stone-400 w-6 h-6 flex items-center justify-center">✕</button>}
+        </div>
+      </div>
+      <div className="flex-1 overflow-y-auto overscroll-contain" style={{ WebkitOverflowScrolling: "touch" }}>
+        {groupedOptions ? (
+          filtered.length === 0 ? <div className="px-6 py-8 text-center text-stone-400 text-sm">No matches for "{q}"</div> :
+          filtered.map(({ group, items }) => (
+            <div key={group}>
+              <div className="sticky top-0 px-5 py-2 text-xs font-bold uppercase tracking-wider text-stone-400 bg-stone-50 border-b border-stone-100">{group}</div>
+              {items.map(item => (
+                <button key={item} onClick={() => pick(item)} className={`w-full text-left px-5 py-4 border-b border-stone-100 active:bg-amber-50 transition-colors flex items-center justify-between ${value === item ? "bg-amber-50" : ""}`}>
+                  <span className={`text-base ${value === item ? "text-amber-700 font-semibold" : "text-stone-700"}`}>{item}</span>
+                  {value === item && <svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M4 10l4 4 8-8" stroke="#d97706" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" /></svg>}
+                </button>
+              ))}
+            </div>
+          ))
+        ) : (
+          filtered.length === 0 ? <div className="px-6 py-8 text-center text-stone-400 text-sm">No matches for "{q}"</div> :
+          filtered.map(item => (
+            <button key={item} onClick={() => pick(item)} className={`w-full text-left px-5 py-4 border-b border-stone-100 active:bg-amber-50 transition-colors flex items-center justify-between ${value === item ? "bg-amber-50" : ""}`}>
+              <span className={`text-base ${value === item ? "text-amber-700 font-semibold" : "text-stone-700"}`}>{item}</span>
+              {value === item && <svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M4 10l4 4 8-8" stroke="#d97706" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" /></svg>}
+            </button>
+          ))
+        )}
+      </div>
+    </div>
+  );
+}
+
+function PkBtn({ value, placeholder, onClick }) {
+  return (
+    <button type="button" onClick={onClick}
+      className="w-full px-3 py-3 bg-white border border-stone-200 rounded-xl text-base text-left transition-all flex items-center justify-between min-h-[48px]">
+      <span className={`truncate ${value ? "text-stone-800" : "text-stone-400"}`}>{value || placeholder}</span>
+      <svg width="14" height="14" viewBox="0 0 14 14" fill="none" className="text-stone-400 flex-shrink-0 ml-2"><path d="M3 5l4 4 4-4" stroke="currentColor" strokeWidth="2" fill="none" /></svg>
+    </button>
+  );
+}
+
+/* ═══════ UI PRIMITIVES ═══════ */
+const ib = "w-full px-3 py-3 bg-white border border-stone-200 rounded-xl text-base focus:outline-none focus:ring-2 focus:ring-amber-400 focus:border-transparent transition-all min-h-[48px]";
+function F({ label, children, span2 }) { return <div className={span2 ? "col-span-2" : ""}><label className="block text-xs font-medium uppercase tracking-wider text-stone-400 mb-1.5">{label}</label>{children}</div>; }
+function I({ value, onChange, type = "text", ...p }) { return <input type={type} inputMode={type === "number" ? "decimal" : undefined} value={value} onChange={e => onChange(type === "number" ? Number(e.target.value) || 0 : e.target.value)} className={ib} style={{ fontSize: 16 }} {...p} />; }
+function Sel({ value, onChange, options }) { return <select value={value} onChange={e => onChange(e.target.value)} className={`${ib} appearance-none pr-10`} style={{ fontSize: 16, backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 14 14'%3E%3Cpath d='M3 5l4 4 4-4' stroke='%2378716c' stroke-width='2' fill='none'/%3E%3C/svg%3E")`, backgroundRepeat: "no-repeat", backgroundPosition: "right 12px center" }}>{options.map(o => <option key={o} value={o}>{o}</option>)}</select>; }
+function Chev({ open }) { return <svg width="20" height="20" viewBox="0 0 20 20" fill="none" className={`text-stone-400 transition-transform duration-200 ${open ? "rotate-180" : ""}`}><path d="M5 8l5 5 5-5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" /></svg>; }
+function Sec({ title, icon, open, onToggle, count, accent, children }) {
+  return (
+    <div className={`rounded-2xl mb-4 overflow-hidden ${accent ? "border-2 border-amber-300" : "border border-stone-200"}`} style={{ background: accent ? "linear-gradient(135deg,rgba(255,251,235,0.95),rgba(254,243,199,0.9))" : "rgba(255,255,255,0.75)", backdropFilter: "blur(10px)" }}>
+      <button onClick={onToggle} className="w-full flex items-center justify-between px-5 py-4 active:bg-stone-50/50 transition-colors min-h-[56px]">
+        <div className="flex items-center gap-2.5"><span className="text-xl">{icon}</span><span style={{ fontFamily: "'Georgia',serif" }} className="text-lg font-semibold text-stone-800">{title}</span>{count != null && <span className="text-xs bg-stone-100 text-stone-500 rounded-full px-2 py-0.5">{count}</span>}</div><Chev open={open} />
+      </button>
+      <div className={open ? "" : "hidden"}><div className="px-4 pb-5 border-t border-stone-100 pt-1">{children}</div></div>
+    </div>
+  );
+}
+function Calc({ children }) { return <div className="px-3 py-3 bg-amber-50 border border-amber-200 rounded-xl text-base font-mono tabular-nums text-stone-700 min-h-[48px] flex items-center">{children}</div>; }
+function AddBtn({ onClick, label }) { return <button onClick={onClick} className="w-full mt-3 py-4 rounded-xl border-2 border-dashed border-stone-200 text-stone-400 text-sm font-medium active:bg-stone-50 transition-colors min-h-[48px]">+ {label}</button>; }
+function RmBtn({ onClick }) { return <button onClick={onClick} className="absolute top-3 right-3 w-10 h-10 flex items-center justify-center rounded-full bg-white border border-stone-200 text-stone-400 active:bg-red-50 active:text-red-500 text-xl leading-none">×</button>; }
+
+/* ═══════ PO GEN ═══════ */
+function genPO(data) {
+  const sups = new Set([data.tile.supplier, data.coping.supplier, data.surface.supplier]);
+  const today = new Date().toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" });
+  const poBase = `PO-${Date.now().toString(36).toUpperCase()}`;
+  const pos = [];
+  for (const sup of sups) {
+    const lines = [];
+    if (data.tile.supplier === sup) data.tile.rows.forEach(r => { const sq = tsf(r.linearFt); const rolled = r.size === "1x2"; lines.push({ cat: "Waterline Tile", item: `${r.name}${r.color ? " – " + r.color : ""}`, size: r.size, area: r.label, lf: r.linearFt, qty: rolled ? sq.toFixed(1) : (sq * OV).toFixed(1), unit: "sq ft", note: rolled ? "" : "15% overage" }); });
+    if (data.coping.supplier === sup) data.coping.rows.forEach(r => { lines.push({ cat: "Coping", item: `${r.stone}${r.stone ? " – " : ""}${r.edge}`, size: r.size, area: r.label, lf: r.linearFt, qty: Math.ceil(cpcs(r.linearFt, r.size, r.edge) * OV).toString(), unit: "pieces", note: "15% overage" }); });
+    if (data.surface.supplier === sup) lines.push({ cat: "Raised Surface", item: `${data.surface.series}${data.surface.color ? " – " + data.surface.color : ""}`, size: data.surface.size, area: "Raised Wall", lf: data.surface.linearFt, qty: (data.surface.linearFt * OV).toFixed(1), unit: "sq ft", note: "15% overage" });
+    if (lines.length) pos.push({ supplier: sup, lines, poNum: pos.length ? `${poBase}-${pos.length + 1}` : poBase });
+  }
+  return { pos, today, client: data.clientName, address: data.address };
+}
+
+function POSheet({ po, today, client, address, onClose, onBack }) {
+  const print = () => {
+    const w = window.open("", "_blank"); if (!w) return;
+    let lastCat = "";
+    const rows = po.lines.map(l => { let c = ""; if (l.cat !== lastCat) { lastCat = l.cat; c = `<tr><td colspan="5" style="background:#f5f0eb;font-weight:700;color:#44403c;padding:8px 12px;font-size:12px;text-transform:uppercase;letter-spacing:0.03em">${l.cat}</td></tr>`; }
+      return c + `<tr><td style="padding:10px 12px;border-bottom:1px solid #e7e5e4">${l.item}<br><span style="color:#a8a29e;font-size:11px">${l.size} · ${l.area}</span></td><td style="padding:10px 12px;border-bottom:1px solid #e7e5e4;text-align:right">${l.lf}</td><td style="padding:10px 12px;border-bottom:1px solid #e7e5e4;text-align:right;font-weight:700">${l.qty}</td><td style="padding:10px 12px;border-bottom:1px solid #e7e5e4">${l.unit}</td><td style="padding:10px 12px;border-bottom:1px solid #e7e5e4;color:#a8a29e;font-size:11px">${l.note}</td></tr>`; }).join("");
+    w.document.write(`<!DOCTYPE html><html><head><meta name="viewport" content="width=device-width"><title>PO ${po.poNum}</title><style>*{margin:0;padding:0;box-sizing:border-box}body{font-family:-apple-system,sans-serif;padding:24px;color:#1c1917;font-size:13px}@media print{body{padding:16px}@page{margin:0.5in}}</style></head><body><div style="display:flex;justify-content:space-between;align-items:flex-start;border-bottom:3px solid #292524;padding-bottom:14px;margin-bottom:16px"><div><img src="${LOGO}" style="height:50px;margin-bottom:8px" /><div style="font-size:20px;font-weight:700;font-family:Georgia,serif">Purchase Order</div><div style="color:#78716c;margin-top:2px;font-size:13px">${po.supplier}</div></div><div style="text-align:right;font-size:12px;color:#78716c;line-height:1.8"><div><b style="color:#292524">PO:</b> ${po.poNum}</div><div><b style="color:#292524">Date:</b> ${today}</div><div><b style="color:#292524">Client:</b> ${client}</div>${address ? `<div><b style="color:#292524">Address:</b> ${address}</div>` : ""}</div></div><table style="width:100%;border-collapse:collapse"><thead><tr><th style="text-align:left;padding:8px 12px;font-size:11px;text-transform:uppercase;color:#78716c;border-bottom:2px solid #d6d3d1">Item</th><th style="text-align:right;padding:8px 12px;font-size:11px;text-transform:uppercase;color:#78716c;border-bottom:2px solid #d6d3d1">Lin ft</th><th style="text-align:right;padding:8px 12px;font-size:11px;text-transform:uppercase;color:#78716c;border-bottom:2px solid #d6d3d1">Order Qty</th><th style="padding:8px 12px;font-size:11px;text-transform:uppercase;color:#78716c;border-bottom:2px solid #d6d3d1">Unit</th><th style="padding:8px 12px;font-size:11px;text-transform:uppercase;color:#78716c;border-bottom:2px solid #d6d3d1">Note</th></tr></thead><tbody>${rows}</tbody></table><div style="margin-top:48px;display:flex;gap:40px"><div style="flex:1;border-top:1px solid #78716c;padding-top:6px;font-size:11px;color:#78716c">Authorized Signature</div><div style="flex:1;border-top:1px solid #78716c;padding-top:6px;font-size:11px;color:#78716c">Date</div></div><div style="margin-top:32px;padding-top:12px;border-top:1px solid #e7e5e4;font-size:11px;color:#a8a29e;text-align:center">Generated ${today}</div></body></html>`);
+    w.document.close(); setTimeout(() => w.print(), 250);
+  };
+  let lastC = ""; po.lines.forEach(l => { l._showCat = l.cat !== lastC; lastC = l.cat; });
+  return (
+    <div className="fixed inset-0 z-50 flex items-end" style={{ background: "rgba(0,0,0,0.45)" }} onClick={onClose}>
+      <div className="bg-white rounded-t-3xl w-full flex flex-col" style={{ maxHeight: "90vh", paddingBottom: "env(safe-area-inset-bottom)" }} onClick={e => e.stopPropagation()}>
+        <div className="flex items-center gap-3 px-5 pt-5 pb-3 border-b border-stone-200">
+          {onBack && <button onClick={onBack} className="w-10 h-10 flex items-center justify-center rounded-full active:bg-stone-100 text-stone-500 text-xl flex-shrink-0">←</button>}
+          <div className="flex-1 min-w-0"><h3 style={{ fontFamily: "'Georgia',serif" }} className="text-lg font-bold text-stone-800 truncate">Purchase Order</h3><p className="text-xs text-stone-400 truncate">{po.supplier} · {po.poNum}</p></div>
+          <button onClick={onClose} className="w-10 h-10 flex items-center justify-center rounded-full bg-stone-100 text-stone-500 text-xl flex-shrink-0">×</button>
+        </div>
+        <div className="flex-1 overflow-y-auto px-5 py-4" style={{ WebkitOverflowScrolling: "touch" }}>
+          <div className="flex justify-center mb-4">
+            <img src={LOGO} alt="Dynamic Custom Pools" style={{ height: 44 }} />
+          </div>
+          <div className="text-xs text-stone-400 mb-3 space-y-0.5">
+            <div className="flex justify-between"><span>Client: <strong className="text-stone-600">{client}</strong></span><span>{today}</span></div>
+            {address && <div>Address: <strong className="text-stone-600">{address}</strong></div>}
+          </div>
+          {po.lines.map((l, i) => (
+            <div key={i}>
+              {l._showCat && <div className="text-xs uppercase tracking-wider font-bold text-stone-400 mt-5 mb-2 first:mt-0">{l.cat}</div>}
+              <div className="flex items-center justify-between py-3 border-b border-stone-100">
+                <div className="min-w-0 flex-1 mr-3"><div className="text-sm font-medium text-stone-700">{l.item}</div><div className="text-xs text-stone-400 mt-0.5">{l.size} · {l.area} · {l.lf} lin ft</div></div>
+                <div className="text-right flex-shrink-0"><div className="font-mono font-bold text-lg text-stone-800">{l.qty}</div><div className="text-xs text-stone-400">{l.unit}</div></div>
+              </div>
+            </div>
+          ))}
+        </div>
+        <div className="px-5 pt-3 pb-4 border-t border-stone-200">
+          <button onClick={print} className="w-full py-4 rounded-xl bg-stone-800 text-white font-semibold text-base active:bg-stone-900 transition-colors flex items-center justify-center gap-2 min-h-[52px]">
+            <svg width="18" height="18" viewBox="0 0 18 18" fill="none"><path d="M4.5 6.75V2.25h9v4.5" stroke="currentColor" strokeWidth="1.5" /><rect x="2.25" y="6.75" width="13.5" height="6.75" rx="1" stroke="currentColor" strokeWidth="1.5" /><path d="M4.5 11.25h9v4.5h-9z" stroke="currentColor" strokeWidth="1.5" /></svg>
+            Print / Save PDF
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function POPicker({ pos, today, client, address, onClose }) {
+  const [viewing, setViewing] = useState(null);
+  if (viewing !== null) return <POSheet po={pos[viewing]} today={today} client={client} address={address} onClose={onClose} onBack={() => setViewing(null)} />;
+  return (
+    <div className="fixed inset-0 z-50 flex items-end" style={{ background: "rgba(0,0,0,0.45)" }} onClick={onClose}>
+      <div className="bg-white rounded-t-3xl w-full" style={{ paddingBottom: "env(safe-area-inset-bottom)" }} onClick={e => e.stopPropagation()}>
+        <div className="px-5 pt-5 pb-3 border-b border-stone-200"><h3 style={{ fontFamily: "'Georgia',serif" }} className="text-lg font-bold text-stone-800">Purchase Orders</h3><p className="text-xs text-stone-400 mt-1">{pos.length} supplier POs ready</p></div>
+        <div className="px-5 py-4 space-y-3">
+          {pos.map((po, i) => (
+            <button key={i} onClick={() => setViewing(i)} className="w-full flex items-center justify-between py-4 px-5 bg-stone-50 rounded-xl border border-stone-200 active:bg-amber-50 transition-colors min-h-[64px]">
+              <div className="text-left min-w-0 flex-1"><div className="font-semibold text-stone-800 truncate">{po.supplier}</div><div className="text-xs text-stone-400 mt-0.5">{po.poNum} · {po.lines.length} items</div></div>
+              <svg width="20" height="20" viewBox="0 0 20 20" fill="none" className="text-stone-400 flex-shrink-0 ml-3"><path d="M8 5l5 5-5 5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" /></svg>
+            </button>
+          ))}
+        </div>
+        <div className="px-5 pb-5"><button onClick={onClose} className="w-full py-3.5 rounded-xl border border-stone-200 text-stone-500 text-sm font-medium min-h-[48px]">Close</button></div>
+      </div>
+    </div>
+  );
+}
+
+/* ═══════ EQUIPMENT PAGE ═══════ */
+const EQUIP_CATS = [
+  { id: "automation", label: "Automation", icon: "📱", def: "IQ904 P/S", defQty: 1 },
+  { id: "pump", label: "Pump", icon: "🔄", def: "Jandy 2.7 VS", defQty: 1 },
+  { id: "extra_pump", label: "Extra Pump", icon: "🔄", def: "Flo Pro 1.1", defQty: 1 },
+  { id: "heater", label: "Heater", icon: "🔥", def: "JXIQ 400K Natural Gas", defQty: 1 },
+  { id: "filter", label: "Filter", icon: "🪣", def: "VersaFlo 460", defQty: 1 },
+  { id: "sanitation", label: "Sanitation", icon: "🧂", def: "TruClear Salt System", defQty: 1 },
+  { id: "pool_lights", label: "Pool Lights", icon: "💡", def: "WaterColor 12V 100'", defQty: 3 },
+  { id: "water_feature", label: "Water Feature", icon: "🌊", def: '24" Jandy Sheer Descent 6" Lip', defQty: 3 },
+  { id: "blower", label: "Blower", icon: "💨", def: "Jandy 1.5hp", defQty: 1 },
+  { id: "transformers", label: "Transformers", icon: "⚡", def: "300W", defQty: 1 },
+  { id: "3way_valves", label: "3 Way Valves", icon: "🔧", def: "3 Way Valves", defQty: 5 },
+  { id: "2way_valves", label: "2 Way Valves", icon: "🔧", def: "2 Way Valves", defQty: 3 },
+  { id: "check_valves", label: "Check Valves", icon: "🔧", def: "Chemical Resistant + Standard Combo", defQty: 3 },
+  { id: "autofill", label: "Autofill", icon: "🚰", def: "SPG-56-5001 Autofill w/ Tan Lid", defQty: 1 },
+  { id: "extras", label: "Extras", icon: "📦", def: "", defQty: 0 },
+];
+
+const JANDY_MODELS = {
+  automation: ["IQ904 P/S","IQ906-PS AquaLink RS6","IQ920-PS AquaLink RS8","IQ904-RS AquaLink RS4 Combo","iAquaLink Kit"],
+  pump: ["Jandy 2.7 VS","Jandy 3.0 VS ePump","Jandy 2.0 VS ePump","Jandy 1.65 VS FloPro","Jandy VSSHP165","Jandy VSSHP270"],
+  extra_pump: ["Flo Pro 1.1","FloPro 1.5HP","FloPro 2.0HP","FloPro VS"],
+  heater: ["JXIQ 400K Natural Gas"],
+  filter: ["VersaFlo 340","VersaFlo 400","VersaFlo 460","CV340","CV460","CV580","DEL48","DEL60","CL340","CL460","CL580"],
+  sanitation: ["TruClear Salt System","TruChlor Erosion Feeder"],
+  pool_lights: ["WaterColor 12V 100'"],
+  water_feature: ['12" Sheer Descent 6" Lip','18" Sheer Descent 6" Lip','24" Sheer Descent 6" Lip','36" Sheer Descent 6" Lip','48" Sheer Descent 6" Lip','Laminar Deck Jet','Pro Series Deck Jet'],
+  blower: ["Jandy 1.0hp 120V","Jandy 1.5hp 120V","Jandy 2.0hp 120V","PSB110 1HP","PSB210 2HP"],
+  transformers: ["100W","300W","600W","PX100","PX300","PX600"],
+  "3way_valves": ["NeverLube 2-2.5\" 3-Port","NeverLube 1.5-2\" 3-Port"],
+  "2way_valves": ["NeverLube 2-2.5\" 2-Port","NeverLube 1.5-2\" 2-Port"],
+  check_valves: ["Chemical Resistant + Standard Combo","Chemical Resistant Check Valve","Standard Check Valve"],
+  autofill: ["SPG-56-5001 Autofill w/ Tan Lid","SPG-56-5001 Autofill w/ White Lid"],
+  extras: [],
+};
+
+const PENTAIR_MODELS = {
+  automation: ["IntelliCenter i5P","IntelliCenter i8P","IntelliCenter i10P","EasyTouch PL4","EasyTouch PSL4","ScreenLogic Kit"],
+  pump: ["IntelliFlo3 VSF 3.0HP","IntelliFlo VSF 3.2HP","IntelliFlo VS+SVRS","IntelliFlo2 VST","SuperFlo VS"],
+  extra_pump: ["SuperFlo 1.0HP","SuperFlo 1.5HP","SuperFlo VS","WhisperFlo 1.0HP","WhisperFlo 1.5HP"],
+  heater: ["JXIQ 400K Natural Gas"],
+  filter: ["Clean & Clear 100","Clean & Clear 150","Clean & Clear 200","Clean & Clear Plus 320","Clean & Clear Plus 420","FNS Plus 48","FNS Plus 60","Triton C-3"],
+  sanitation: ["TruClear Salt System","TruChlor Erosion Feeder"],
+  pool_lights: ["WaterColor 12V 100'"],
+  water_feature: ['12" MagicFalls Sheer','18" MagicFalls Sheer','24" MagicFalls Sheer','36" MagicFalls Sheer','MagicStream Laminar'],
+  blower: ["Pentair Air Blower 1.0HP","Pentair Air Blower 1.5HP","Pentair Air Blower 2.0HP"],
+  transformers: ["100W Transformer","300W Transformer","600W Transformer"],
+  "3way_valves": ["3-Port 2-2.5\" Diverter Valve","3-Port 1.5-2\" Diverter Valve"],
+  "2way_valves": ["2-Port 2-2.5\" Diverter Valve","2-Port 1.5-2\" Diverter Valve"],
+  check_valves: ["Chemical Resistant + Standard Combo","Chemical Resistant Check Valve","Standard Check Valve"],
+  autofill: ["Pentair Autofill w/ Tan Lid","Pentair Autofill w/ White Lid"],
+  extras: [],
+};
+
+const PART_NUMS = {
+  // Automation
+  "IQ904 P/S": "POL-30-9204",
+  "IQ906-PS AquaLink RS6": "POL-30-9206",
+  "IQ920-PS AquaLink RS8": "POL-30-9208",
+  "IQ904-RS AquaLink RS4 Combo": "POL-30-9204RS",
+  "iAquaLink Kit": "JDY-30-IQ900",
+  "IntelliCenter i5P": "PEN-30-522592",
+  "IntelliCenter i8P": "PEN-30-522593",
+  "IntelliCenter i10P": "PEN-30-522594",
+  "EasyTouch PL4": "PEN-30-522353",
+  "EasyTouch PSL4": "PEN-30-522354",
+  "ScreenLogic Kit": "PEN-30-522104",
+  // Pumps
+  "Jandy 2.7 VS": "TLD-10-2133",
+  "Jandy 3.0 VS ePump": "TLD-10-2134",
+  "Jandy 2.0 VS ePump": "TLD-10-2132",
+  "Jandy 1.65 VS FloPro": "TLD-10-2131",
+  "Jandy VSSHP165": "TLD-10-2131",
+  "Jandy VSSHP270": "TLD-10-2133",
+  "IntelliFlo3 VSF 3.0HP": "PEN-10-011075",
+  "IntelliFlo VSF 3.2HP": "PEN-10-011056",
+  "IntelliFlo VS+SVRS": "PEN-10-011057",
+  "IntelliFlo2 VST": "PEN-10-011078",
+  "SuperFlo VS": "PEN-10-342001",
+  // Extra Pumps
+  "Flo Pro 1.1": "TLD-10-2061",
+  "FloPro 1.5HP": "TLD-10-2062",
+  "FloPro 2.0HP": "TLD-10-2063",
+  "FloPro VS": "TLD-10-2065",
+  "SuperFlo 1.0HP": "PEN-10-340038",
+  "SuperFlo 1.5HP": "PEN-10-340039",
+  "WhisperFlo 1.0HP": "PEN-10-011514",
+  "WhisperFlo 1.5HP": "PEN-10-011516",
+  // Heater
+  "JXIQ 400K Natural Gas": "LAR-15-8521",
+  // Filters
+  "VersaFlo 340": "TLD-05-115",
+  "VersaFlo 400": "TLD-05-116A",
+  "VersaFlo 460": "TLD-05-116",
+  "CV340": "TLD-05-115",
+  "CV460": "TLD-05-116",
+  "CV580": "TLD-05-117",
+  "DEL48": "TLD-05-048",
+  "DEL60": "TLD-05-060",
+  "CL340": "TLD-05-340",
+  "CL460": "TLD-05-460",
+  "CL580": "TLD-05-580",
+  "Clean & Clear 100": "PEN-05-160316",
+  "Clean & Clear 150": "PEN-05-160317",
+  "Clean & Clear 200": "PEN-05-160318",
+  "Clean & Clear Plus 320": "PEN-05-160340",
+  "Clean & Clear Plus 420": "PEN-05-160341",
+  "FNS Plus 48": "PEN-05-180008",
+  "FNS Plus 60": "PEN-05-180009",
+  "Triton C-3": "PEN-05-140264",
+  // Sanitation
+  "TruClear Salt System": "JDY-45-9879",
+  "TruChlor Erosion Feeder": "JDY-45-9800",
+  // Lights
+  "WaterColor 12V 100'": "JDY-30-0706",
+  // Water Features
+  '12" Sheer Descent 6" Lip': "JDY-85-1200",
+  '18" Sheer Descent 6" Lip': "JDY-85-1800",
+  '24" Sheer Descent 6" Lip': "JDY-85-2400",
+  '36" Sheer Descent 6" Lip': "JDY-85-3600",
+  '48" Sheer Descent 6" Lip': "JDY-85-4800",
+  "Laminar Deck Jet": "JDY-85-LDJ",
+  "Pro Series Deck Jet": "JDY-85-PDJ",
+  '12" MagicFalls Sheer': "PEN-85-588212",
+  '18" MagicFalls Sheer': "PEN-85-588218",
+  '24" MagicFalls Sheer': "PEN-85-588224",
+  '36" MagicFalls Sheer': "PEN-85-588236",
+  "MagicStream Laminar": "PEN-85-580001",
+  // Blowers
+  "Jandy 1.0hp 120V": "JDY-85-8035",
+  "Jandy 1.5hp 120V": "JDY-85-8036",
+  "Jandy 2.0hp 120V": "JDY-85-8037",
+  "PSB110 1HP": "JDY-85-8035",
+  "PSB210 2HP": "JDY-85-8037",
+  "Pentair Air Blower 1.0HP": "PEN-85-347980",
+  "Pentair Air Blower 1.5HP": "PEN-85-347981",
+  "Pentair Air Blower 2.0HP": "PEN-85-347982",
+  // Transformers
+  "100W": "INT-30-749",
+  "300W": "INT-30-750",
+  "600W": "INT-30-751",
+  "PX100": "INT-30-749",
+  "PX300": "INT-30-750",
+  "PX600": "INT-30-751",
+  "100W Transformer": "INT-30-749",
+  "300W Transformer": "INT-30-750",
+  "600W Transformer": "INT-30-751",
+  // Valves
+  'NeverLube 2-2.5" 3-Port': "JDY-56-4055",
+  'NeverLube 1.5-2" 3-Port': "JDY-56-4053",
+  'NeverLube 2-2.5" 2-Port': "JDY-56-4054",
+  'NeverLube 1.5-2" 2-Port': "JDY-56-4052",
+  '3-Port 2-2.5" Diverter Valve': "PEN-56-263028",
+  '3-Port 1.5-2" Diverter Valve': "PEN-56-263026",
+  '2-Port 2-2.5" Diverter Valve': "PEN-56-263038",
+  '2-Port 1.5-2" Diverter Valve': "PEN-56-263036",
+  // Check Valves
+  "Chemical Resistant + Standard Combo": "SPG-56-1820 + JDY-56-4084",
+  "Chemical Resistant Check Valve": "SPG-56-1820",
+  "Standard Check Valve": "JDY-56-4084",
+  // Autofill
+  "SPG-56-5001 Autofill w/ Tan Lid": "SPG-56-5001",
+  "SPG-56-5001 Autofill w/ White Lid": "SPG-56-5002",
+  "Pentair Autofill w/ Tan Lid": "PEN-56-T15T",
+  "Pentair Autofill w/ White Lid": "PEN-56-T15W",
+};
+
+const BRANDS = ["Jandy","Pentair"];
+const getModels = (brand, catId) => (brand === "Pentair" ? PENTAIR_MODELS : JANDY_MODELS)[catId] || [];
+
+function EquipmentPage({ clientName, address }) {
+  const [brand, setBrand] = useState("Jandy");
+  const [rows, setRows] = useState(() => EQUIP_CATS.map(c => ({ ...c, description: c.def, qty: c.defQty, notes: "" })));
+  const [openCats, setOpenCats] = useState({});
+  const [poData, setPoData] = useState(null);
+  const [eqSearch, setEqSearch] = useState(null);
+  const [uploading, setUploading] = useState(false);
+  const [uploadStatus, setUploadStatus] = useState(null);
+  const fileInputRef = useRef(null);
+
+  const toggleCat = id => setOpenCats(o => ({ ...o, [id]: !o[id] }));
+  const updateRow = (idx, field, val) => { setRows(prev => { const r = [...prev]; r[idx] = { ...r[idx], [field]: val }; return r; }); };
+
+  const applyParsed = (parsed) => {
+    if (parsed.brand && BRANDS.includes(parsed.brand)) setBrand(parsed.brand);
+    if (parsed.items) {
+      setRows(prev => prev.map(row => {
+        const match = parsed.items[row.id];
+        if (match && match.description) return { ...row, description: match.description, qty: match.qty || 0, notes: match.notes || "" };
+        return row;
+      }));
+      const newOpen = {};
+      EQUIP_CATS.forEach(c => { if (parsed.items[c.id]?.qty > 0) newOpen[c.id] = true; });
+      setOpenCats(newOpen);
+    }
+  };
+
+  const handlePdfUpload = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    e.target.value = "";
+    try {
+      setUploading(true);
+      setUploadStatus("reading");
+      const buf = await file.arrayBuffer();
+      const bytes = new Uint8Array(buf);
+      let bin = "";
+      const chunk = 8192;
+      for (let i = 0; i < bytes.length; i += chunk) {
+        bin += String.fromCharCode.apply(null, bytes.subarray(i, i + chunk));
+      }
+      const b64 = btoa(bin);
+      setUploadStatus("analyzing");
+      const catIds = EQUIP_CATS.map(c => c.id);
+      const jm = JSON.stringify(JANDY_MODELS);
+      const pm = JSON.stringify(PENTAIR_MODELS);
+      const response = await fetch("https://api.anthropic.com/v1/messages", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          model: "claude-sonnet-4-20250514",
+          max_tokens: 1000,
+          system: "You extract pool equipment from contracts. Respond with ONLY valid JSON, no markdown fences.",
+          messages: [{
+            role: "user",
+            content: [
+              { type: "document", source: { type: "base64", media_type: "application/pdf", data: b64 } },
+              { type: "text", text: "Extract equipment into IDs: " + catIds.join(", ") + ". Jandy: " + jm + ". Pentair: " + pm + '. RULES: 3way_valves=1/diverter (suction,return,feature,spillover,solar). 2way_valves=1/isolated line (feature,jets,cleaner). transformers=12W/light pick 100W/300W/600W. check_valves=Combo qty 3. Blower if spa. Lights 3avg 4-5large. Default Jandy. Return: {"brand":"Jandy","clientName":"","address":"","items":{"automation":{"description":"","qty":1,"notes":""},"pump":{"description":"","qty":1,"notes":""},"extra_pump":{"description":"","qty":1,"notes":""},"heater":{"description":"","qty":1,"notes":""},"filter":{"description":"","qty":1,"notes":""},"sanitation":{"description":"","qty":1,"notes":""},"pool_lights":{"description":"","qty":3,"notes":""},"water_feature":{"description":"","qty":0,"notes":""},"blower":{"description":"","qty":0,"notes":""},"transformers":{"description":"","qty":1,"notes":""},"3way_valves":{"description":"","qty":3,"notes":""},"2way_valves":{"description":"","qty":2,"notes":""},"check_valves":{"description":"","qty":3,"notes":""},"autofill":{"description":"","qty":1,"notes":""},"extras":{"description":"","qty":0,"notes":""}}}' }
+            ]
+          }]
+        })
+      });
+      if (!response.ok) throw new Error("API " + response.status);
+      const data = await response.json();
+      const respText = (data.content || []).map(b => b.text || "").filter(Boolean).join("");
+      if (!respText) throw new Error("Empty");
+      const clean = respText.replace(/```json\s*/g, "").replace(/```\s*/g, "").trim();
+      applyParsed(JSON.parse(clean));
+      setUploadStatus("done");
+      setTimeout(() => setUploadStatus(null), 3000);
+    } catch (err) {
+      console.error("PDF analysis error:", err);
+      setUploadStatus("error");
+      setTimeout(() => setUploadStatus(null), 4000);
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const handleGenPO = () => {
+    const today = new Date().toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" });
+    const poNum = `EQ-${Date.now().toString(36).toUpperCase()}`;
+    const lines = rows.filter(r => r.qty > 0 && r.description).map(r => ({
+      item: r.description,
+      partNum: PART_NUMS[r.description] || "",
+      qty: r.qty,
+      notes: r.notes,
+    }));
+    setPoData({ lines, today, poNum, client: clientName, address, brand });
+  };
+
+  const handleEqSearchSelect = v => {
+    if (eqSearch == null) return;
+    updateRow(eqSearch, "description", v);
+  };
+
+  const filledCount = rows.filter(r => r.qty > 0 && r.description).length;
+
+  return (
+    <div className="px-4 pt-4 pb-6">
+      {/* Upload Contract PDF */}
+      <div className="mb-4">
+        <input ref={fileInputRef} type="file" accept=".pdf,application/pdf" onChange={handlePdfUpload} style={{ display: "none" }} />
+        <button
+          onClick={() => fileInputRef.current?.click()}
+          disabled={uploading}
+          className={`w-full py-4 rounded-2xl font-semibold text-base flex items-center justify-center gap-3 transition-all min-h-[56px] border-2 border-dashed ${uploading ? "border-amber-400 bg-amber-50 text-amber-700" : uploadStatus === "done" ? "border-green-400 bg-green-50 text-green-700" : uploadStatus === "error" ? "border-red-400 bg-red-50 text-red-700" : "border-stone-300 bg-white text-stone-600 active:bg-stone-50"}`}
+        >
+          {uploadStatus === "reading" && <><span className="animate-spin">⏳</span> Reading PDF...</>}
+          {uploadStatus === "analyzing" && <><span className="animate-pulse">🤖</span> AI analyzing equipment...</>}
+          {uploadStatus === "done" && <><span>✅</span> Equipment auto-filled!</>}
+          {uploadStatus === "error" && <><span>❌</span> Failed — tap to retry</>}
+          {!uploadStatus && !uploading && <>
+            <svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M10 3v10M6 7l4-4 4 4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" /><path d="M3 13v2a2 2 0 002 2h10a2 2 0 002-2v-2" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" /></svg>
+            Upload Contract PDF
+          </>}
+        </button>
+        <p className="text-xs text-stone-400 text-center mt-1.5">AI reads your contract PDF and auto-fills all equipment & quantities</p>
+      </div>
+
+      <div className="mb-4">
+        <F label="Primary Brand">
+          <Sel value={brand} onChange={setBrand} options={BRANDS} />
+        </F>
+      </div>
+      <p className="text-xs text-stone-400 mb-4">{filledCount} of {EQUIP_CATS.length} items configured</p>
+
+      {rows.map((row, idx) => {
+        const models = getModels(brand, row.id);
+        return (
+          <Sec key={row.id} title={row.label} icon={row.icon} open={!!openCats[row.id]} onToggle={() => toggleCat(row.id)}
+            count={row.qty > 0 && row.description ? row.qty : null}>
+            <div className="space-y-3 mt-3">
+              <F label="Description">
+                {models.length > 0 ? (
+                  <PkBtn value={row.description} placeholder="Tap to select model..." onClick={() => setEqSearch(idx)} />
+                ) : (
+                  <I value={row.description} onChange={v => updateRow(idx, "description", v)} placeholder="Enter description" />
+                )}
+              </F>
+              <div className="grid grid-cols-2 gap-3">
+                <F label="Qty">
+                  <div className="flex items-center gap-2">
+                    <button onClick={() => updateRow(idx, "qty", Math.max(0, row.qty - 1))} className="w-12 h-12 flex items-center justify-center rounded-lg bg-white border border-stone-200 text-stone-500 text-xl active:bg-stone-100">−</button>
+                    <div className="flex-1 text-center font-mono text-lg font-bold text-stone-800">{row.qty}</div>
+                    <button onClick={() => updateRow(idx, "qty", row.qty + 1)} className="w-12 h-12 flex items-center justify-center rounded-lg bg-white border border-stone-200 text-stone-500 text-xl active:bg-stone-100">+</button>
+                  </div>
+                </F>
+                <F label="Notes"><I value={row.notes} onChange={v => updateRow(idx, "notes", v)} placeholder="Optional" /></F>
+              </div>
+            </div>
+          </Sec>
+        );
+      })}
+
+      {/* Generate Equipment PO */}
+      <button onClick={handleGenPO} className="w-full py-4 rounded-2xl text-white font-semibold text-base flex items-center justify-center gap-3 active:scale-[0.98] transition-all mb-2 min-h-[56px]" style={{ background: "linear-gradient(135deg,#292524,#44403c)" }}>
+        <svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M6 2h8l4 4v10a2 2 0 01-2 2H6a2 2 0 01-2-2V4a2 2 0 012-2z" stroke="currentColor" strokeWidth="1.5" /><path d="M14 2v4h4M8 10h4M8 13h6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" /></svg>
+        Generate Equipment PO
+      </button>
+
+      {/* Equipment search modal */}
+      <SearchModal
+        open={eqSearch != null}
+        onClose={() => setEqSearch(null)}
+        title="Select Model"
+        options={eqSearch != null ? getModels(brand, rows[eqSearch]?.id) : []}
+        value={eqSearch != null ? rows[eqSearch]?.description : ""}
+        onSelect={handleEqSearchSelect}
+      />
+
+      {/* Equipment PO Sheet */}
+      {poData && (
+        <div className="fixed inset-0 z-50 flex items-end" style={{ background: "rgba(0,0,0,0.45)" }} onClick={() => setPoData(null)}>
+          <div className="bg-white rounded-t-3xl w-full flex flex-col" style={{ maxHeight: "90vh", paddingBottom: "env(safe-area-inset-bottom)" }} onClick={e => e.stopPropagation()}>
+            <div className="flex items-center gap-3 px-5 pt-5 pb-3 border-b border-stone-200">
+              <div className="flex-1 min-w-0"><h3 style={{ fontFamily: "'Georgia',serif" }} className="text-lg font-bold text-stone-800 truncate">Equipment PO</h3><p className="text-xs text-stone-400 truncate">{poData.brand} · {poData.poNum}</p></div>
+              <button onClick={() => setPoData(null)} className="w-10 h-10 flex items-center justify-center rounded-full bg-stone-100 text-stone-500 text-xl flex-shrink-0">×</button>
+            </div>
+            <div className="flex-1 overflow-y-auto px-5 py-4" style={{ WebkitOverflowScrolling: "touch" }}>
+              <div className="flex justify-center mb-4"><img src={LOGO} alt="Logo" style={{ height: 44 }} /></div>
+              <div className="text-xs text-stone-400 mb-3 space-y-0.5">
+                <div className="flex justify-between"><span>Client: <strong className="text-stone-600">{poData.client}</strong></span><span>{poData.today}</span></div>
+                {poData.address && <div>Address: <strong className="text-stone-600">{poData.address}</strong></div>}
+              </div>
+              {poData.lines.map((l, i) => (
+                <div key={i} className="flex items-center justify-between py-3 border-b border-stone-100">
+                  <div className="min-w-0 flex-1 mr-3">
+                    <div className="text-sm font-medium text-stone-700">{l.item}</div>
+                    <div className="text-xs text-stone-400 mt-0.5">{l.partNum}{l.notes ? ` · ${l.notes}` : ""}</div>
+                  </div>
+                  <div className="text-right flex-shrink-0">
+                    <div className="font-mono font-bold text-lg text-stone-800">{l.qty}</div>
+                    <div className="text-xs text-stone-400">ea</div>
+                  </div>
+                </div>
+              ))}
+            </div>
+            <div className="px-5 pt-3 pb-4 border-t border-stone-200">
+              <button onClick={() => {
+                const w = window.open("", "_blank"); if (!w) return;
+                const trs = poData.lines.map(l => `<tr><td style="padding:10px 12px;border-bottom:1px solid #e7e5e4">${l.item}</td><td style="padding:10px 12px;border-bottom:1px solid #e7e5e4;color:#78716c;font-size:12px">${l.partNum}</td><td style="padding:10px 12px;border-bottom:1px solid #e7e5e4;text-align:center;font-weight:700">${l.qty}</td><td style="padding:10px 12px;border-bottom:1px solid #e7e5e4;color:#a8a29e;font-size:11px">${l.notes}</td></tr>`).join("");
+                w.document.write(`<!DOCTYPE html><html><head><meta name="viewport" content="width=device-width"><title>EQ PO ${poData.poNum}</title><style>*{margin:0;padding:0;box-sizing:border-box}body{font-family:-apple-system,sans-serif;padding:24px;color:#1c1917;font-size:13px}@media print{body{padding:16px}@page{margin:0.5in}}</style></head><body><div style="display:flex;justify-content:space-between;align-items:flex-start;border-bottom:3px solid #292524;padding-bottom:14px;margin-bottom:16px"><div><img src="${LOGO}" style="height:50px;margin-bottom:8px" /><div style="font-size:20px;font-weight:700;font-family:Georgia,serif">Equipment Purchase Order</div><div style="color:#78716c;margin-top:2px;font-size:13px">${poData.brand}</div></div><div style="text-align:right;font-size:12px;color:#78716c;line-height:1.8"><div><b style="color:#292524">PO:</b> ${poData.poNum}</div><div><b style="color:#292524">Date:</b> ${poData.today}</div><div><b style="color:#292524">Client:</b> ${poData.client}</div>${poData.address ? `<div><b style="color:#292524">Address:</b> ${poData.address}</div>` : ""}</div></div><table style="width:100%;border-collapse:collapse"><thead><tr><th style="text-align:left;padding:8px 12px;font-size:11px;text-transform:uppercase;color:#78716c;border-bottom:2px solid #d6d3d1">Item</th><th style="text-align:left;padding:8px 12px;font-size:11px;text-transform:uppercase;color:#78716c;border-bottom:2px solid #d6d3d1">Part #</th><th style="text-align:center;padding:8px 12px;font-size:11px;text-transform:uppercase;color:#78716c;border-bottom:2px solid #d6d3d1">Qty</th><th style="padding:8px 12px;font-size:11px;text-transform:uppercase;color:#78716c;border-bottom:2px solid #d6d3d1">Notes</th></tr></thead><tbody>${trs}</tbody></table><div style="margin-top:48px;display:flex;gap:40px"><div style="flex:1;border-top:1px solid #78716c;padding-top:6px;font-size:11px;color:#78716c">Authorized Signature</div><div style="flex:1;border-top:1px solid #78716c;padding-top:6px;font-size:11px;color:#78716c">Date</div></div><div style="margin-top:32px;padding-top:12px;border-top:1px solid #e7e5e4;font-size:11px;color:#a8a29e;text-align:center">Generated ${poData.today}</div></body></html>`);
+                w.document.close(); setTimeout(() => w.print(), 250);
+              }} className="w-full py-4 rounded-xl bg-stone-800 text-white font-semibold text-base active:bg-stone-900 transition-colors flex items-center justify-center gap-2 min-h-[52px]">
+                <svg width="18" height="18" viewBox="0 0 18 18" fill="none"><path d="M4.5 6.75V2.25h9v4.5" stroke="currentColor" strokeWidth="1.5" /><rect x="2.25" y="6.75" width="13.5" height="6.75" rx="1" stroke="currentColor" strokeWidth="1.5" /><path d="M4.5 11.25h9v4.5h-9z" stroke="currentColor" strokeWidth="1.5" /></svg>
+                Print / Save PDF
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      
+    </div>
+  );
+}
+
+/* ═══════ MAIN APP ═══════ */
+const init = {
+  clientName: "",
+  address: "",
+  tile: { supplier: "Aqua Bella", rows: [
+    { label: "Pool", name: "", color: "", size: "6x6", linearFt: 0 },
+    { label: "Spa", name: "", color: "", size: "6x6", linearFt: 0, sameAsPool: false },
+    { label: "Spa Rolled Edge", name: "", color: "", size: "1x2", linearFt: 0 },
+  ] },
+  coping: { supplier: "Aqua Bella", rows: [
+    { label: "Pool", stone: "", edge: "Paver", size: "12x24", linearFt: 0 },
+    { label: "Spa", stone: "", edge: "Paver", size: "12x24", linearFt: 0 },
+    { label: "Raised wall", stone: "", edge: "Paver", size: "16x24", linearFt: 0 },
+  ] },
+  surface: { supplier: "Aqua Bella", series: "", color: "", size: "2x4", linearFt: 0 },
+};
+
+const LOGO = "data:image/png;base64,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";
+
+function App() {
+  const [data, setData] = useState(init);
+  const [open, setOpen] = useState({ tile: true, coping: false, surface: false, summary: true });
+  const [poData, setPoData] = useState(null);
+  const [search, setSearch] = useState(null);
+  const toggle = k => setOpen(o => ({ ...o, [k]: !o[k] }));
+
+  const poolRow = data.tile.rows.find(r => r.label.toLowerCase().includes("pool") && !r.label.toLowerCase().includes("rolled"));
+  const catalog = gCat(data.tile.supplier);
+  const groups = gGrp(data.tile.supplier);
+  const colors = n => catalog[n] || [];
+
+  const copingOptions = data.coping.supplier === "NPT (National Pool Tile)" ? NPT_COPING_G : null;
+  const copingFlat = data.coping.supplier === "NPT (National Pool Tile)" ? null : AB_COPING;
+  const veneerCat = data.surface.supplier === "NPT (National Pool Tile)" ? NPT_VENEER : AB_VENEER;
+  const veneerSeries = Object.keys(veneerCat);
+  const veneerColors = s => veneerCat[s] || [];
+
+  const updateTile = useCallback((i, f, v) => { setData(d => { const rows = [...d.tile.rows]; rows[i] = { ...rows[i], [f]: v }; if (f === "name") rows[i].color = ""; return { ...d, tile: { ...d.tile, rows } }; }); }, []);
+  const updateCoping = useCallback((i, f, v) => { setData(d => { const rows = [...d.coping.rows]; rows[i] = { ...rows[i], [f]: v }; return { ...d, coping: { ...d.coping, rows } }; }); }, []);
+  const chgTileSup = v => setData(d => ({ ...d, tile: { supplier: v, rows: d.tile.rows.map(r => ({ ...r, name: "", color: "", sameAsPool: false })) } }));
+  const chgCopingSup = v => setData(d => ({ ...d, coping: { supplier: v, rows: d.coping.rows.map(r => ({ ...r, stone: "" })) } }));
+  const chgSurfSup = v => setData(d => ({ ...d, surface: { ...d.surface, supplier: v, series: "", color: "" } }));
+  const addTile = () => setData(d => ({ ...d, tile: { ...d.tile, rows: [...d.tile.rows, { label: "", name: "", color: "", size: "6x6", linearFt: 0, sameAsPool: false }] } }));
+  const addCoping = () => setData(d => ({ ...d, coping: { ...d.coping, rows: [...d.coping.rows, { label: "", stone: "", edge: "Paver", size: "12x24", linearFt: 0 }] } }));
+  const rmTile = i => setData(d => ({ ...d, tile: { ...d.tile, rows: d.tile.rows.filter((_, j) => j !== i) } }));
+  const rmCoping = i => setData(d => ({ ...d, coping: { ...d.coping, rows: d.coping.rows.filter((_, j) => j !== i) } }));
+
+  const effRows = useMemo(() => data.tile.rows.map(r => r.sameAsPool && poolRow ? { ...r, name: poolRow.name, color: poolRow.color, size: poolRow.size } : r), [data.tile.rows, poolRow]);
+
+  const summary = useMemo(() => {
+    const tt = effRows.filter(r => r.size !== "1x2").reduce((s, r) => s + tsf(r.linearFt), 0) * OV;
+    const re = effRows.filter(r => r.size === "1x2").reduce((s, r) => s + tsf(r.linearFt), 0);
+    const cbs = {}; data.coping.rows.forEach(r => { if (!cbs[r.size]) cbs[r.size] = { pcs: 0, stone: r.stone }; cbs[r.size].pcs += cpcs(r.linearFt, r.size, r.edge); });
+    Object.keys(cbs).forEach(k => { cbs[k].pcs = Math.ceil(cbs[k].pcs * OV); });
+    return { tt, re, cbs, sf: data.surface.linearFt * OV };
+  }, [effRows, data.coping.rows, data.surface.linearFt]);
+
+  const desc = r => { let s = r.name || "—"; if (r.color) s += ` – ${r.color}`; return s; };
+  const e0 = effRows[0] || {};
+  const items = [
+    { label: "Waterline Tile", sub: `${desc(e0)} · ${e0.size || ""}`, val: summary.tt.toFixed(1), unit: "sq ft" },
+    ...(summary.re > 0 ? [{ label: "Rolled Edge", sub: "1x2", val: summary.re.toFixed(1), unit: "sq ft" }] : []),
+    ...Object.entries(summary.cbs).map(([sz, d]) => ({ label: `${sz} Coping`, sub: d.stone, val: String(d.pcs), unit: "pcs" })),
+    { label: "Raised Surface", sub: `${data.surface.series} – ${data.surface.color} · ${data.surface.size}`, val: summary.sf.toFixed(1), unit: "sq ft" },
+  ];
+
+  const uniqSups = [...new Set([data.tile.supplier, data.coping.supplier, data.surface.supplier])];
+  const handlePO = () => { setPoData(genPO({ ...data, tile: { ...data.tile, rows: effRows } })); };
+
+  // Search modal handler
+  const handleSearchSelect = v => {
+    if (!search) return;
+    const { section, rowIdx, field } = search;
+    if (section === "tile") updateTile(rowIdx, field, v);
+    else if (section === "coping") updateCoping(rowIdx, field, v);
+    else if (section === "surface") {
+      if (field === "series") setData(d => ({ ...d, surface: { ...d.surface, series: v, color: "" } }));
+      else setData(d => ({ ...d, surface: { ...d.surface, color: v } }));
+    }
+  };
+
+  const [page, setPage] = useState("materials");
+
+  return (
+    <div className="min-h-screen pb-6" style={{ fontFamily: "-apple-system,'SF Pro Text','Segoe UI',sans-serif", background: "linear-gradient(160deg,#f5f0eb 0%,#e8e0d8 100%)" }}>
+      <div className="sticky top-0 z-30 px-5 pt-4 pb-0 border-b border-stone-200/50" style={{ background: "rgba(245,240,235,0.92)", backdropFilter: "blur(16px)", WebkitBackdropFilter: "blur(16px)", paddingTop: "max(16px, env(safe-area-inset-top))" }}>
+        <div className="flex items-center justify-between mb-2">
+          <img src={LOGO} alt="Dynamic Custom Pools" style={{ height: 36 }} />
+        </div>
+        <div className="mt-2 space-y-1.5">
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-stone-400 w-14 flex-shrink-0">Client</span>
+            <input value={data.clientName} onChange={e => setData({ ...data, clientName: e.target.value })} placeholder="Client name" className="flex-1 px-3 py-2 bg-white border border-stone-200 rounded-lg text-sm font-medium text-stone-700 placeholder-stone-300 outline-none focus:ring-2 focus:ring-amber-400 focus:border-transparent" style={{ fontSize: 16 }} />
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-stone-400 w-14 flex-shrink-0">Address</span>
+            <input value={data.address} onChange={e => setData({ ...data, address: e.target.value })} placeholder="Job site address" className="flex-1 px-3 py-2 bg-white border border-stone-200 rounded-lg text-sm text-stone-700 placeholder-stone-300 outline-none focus:ring-2 focus:ring-amber-400 focus:border-transparent" style={{ fontSize: 16 }} />
+          </div>
+        </div>
+        {/* ─── PAGE TABS ─── */}
+        <div className="flex mt-3 -mb-px">
+          {[["materials","Materials"],["equipment","Equipment"]].map(([k,label]) => (
+            <button key={k} onClick={() => setPage(k)}
+              className={`flex-1 py-3 text-sm font-semibold text-center transition-colors ${page === k ? "text-stone-800 border-b-2 border-stone-800" : "text-stone-400 border-b-2 border-transparent"}`}>
+              {label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {page === "materials" && (<div className="px-4 pt-4">
+        {/* ─── TILE ─── */}
+        <Sec title="Waterline Tile" icon="🔷" open={open.tile} onToggle={() => toggle("tile")} count={data.tile.rows.length}>
+          <div className="mt-3 mb-4"><F label="Supplier"><Sel value={data.tile.supplier} onChange={chgTileSup} options={SUPS} /></F></div>
+          <div className="space-y-3">
+            {data.tile.rows.map((row, i) => {
+              const eff = effRows[i]; const isPool = row.label.toLowerCase().includes("pool") && !row.label.toLowerCase().includes("rolled"); const canSame = !isPool && poolRow && row !== poolRow;
+              return (
+                <div key={i} className="bg-stone-50 rounded-xl p-4 relative">
+                  <RmBtn onClick={() => rmTile(i)} />
+                  <div className="grid grid-cols-2 gap-3">
+                    <F label="Area"><I value={row.label} onChange={v => updateTile(i, "label", v)} placeholder="e.g. Pool" /></F>
+                    <F label="Size">{row.sameAsPool ? <div className={`${ib} bg-stone-100 text-stone-500 flex items-center`}>{eff.size}</div> : <Sel value={row.size} onChange={v => updateTile(i, "size", v)} options={T_SZ} />}</F>
+                    {canSame && <div className="col-span-2"><label className="flex items-center gap-3 py-3 px-4 bg-white border border-stone-200 rounded-xl active:bg-amber-50 transition-colors min-h-[52px]"><input type="checkbox" checked={!!row.sameAsPool} onChange={e => updateTile(i, "sameAsPool", e.target.checked)} className="w-6 h-6 rounded border-stone-300 accent-amber-500 flex-shrink-0" /><div className="min-w-0"><div className="text-sm font-medium text-stone-700">Same tile as Pool</div>{row.sameAsPool && poolRow && <div className="text-xs text-stone-400 truncate mt-0.5">{poolRow.name}{poolRow.color ? " – " + poolRow.color : ""} · {poolRow.size}</div>}</div></label></div>}
+                    {!row.sameAsPool && (<>
+                      <F label="Tile Series" span2><PkBtn value={row.name} placeholder="Tap to search..." onClick={() => setSearch({ section: "tile", rowIdx: i, field: "name", title: "Tile Series", groupedOptions: groups, value: row.name })} /></F>
+                      <F label="Color / Variant" span2>{colors(row.name).length > 0 ? <PkBtn value={row.color} placeholder="Tap to search colors..." onClick={() => setSearch({ section: "tile", rowIdx: i, field: "color", title: "Colors", options: colors(row.name), value: row.color })} /> : <I value={row.color} onChange={v => updateTile(i, "color", v)} placeholder={row.name ? "Type color" : "Select series first"} />}</F>
+                    </>)}
+                    <F label="Linear ft"><I value={row.linearFt} onChange={v => updateTile(i, "linearFt", v)} type="number" /></F>
+                    <F label="Sq ft"><Calc>{tsf(row.linearFt).toFixed(1)}</Calc></F>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+          <AddBtn onClick={addTile} label="Add tile row" />
+        </Sec>
+
+        {/* ─── COPING ─── */}
+        <Sec title="Coping" icon="🧱" open={open.coping} onToggle={() => toggle("coping")} count={data.coping.rows.length}>
+          <div className="mt-3 mb-4"><F label="Supplier"><Sel value={data.coping.supplier} onChange={chgCopingSup} options={SUPS} /></F>
+          <p className="text-xs text-stone-400 mt-1.5">{data.coping.supplier === "Aqua Bella" ? "9 stone colors" : "12+ travertine, marble & limestone"}</p></div>
+          <div className="space-y-3">
+            {data.coping.rows.map((row, i) => (
+              <div key={i} className="bg-stone-50 rounded-xl p-4 relative">
+                <RmBtn onClick={() => rmCoping(i)} />
+                <div className="grid grid-cols-2 gap-3">
+                  <F label="Area"><I value={row.label} onChange={v => updateCoping(i, "label", v)} placeholder="e.g. Pool" /></F>
+                  <F label="Stone Color">
+                    <PkBtn value={row.stone} placeholder="Tap to search..." onClick={() => setSearch({ section: "coping", rowIdx: i, field: "stone", title: "Coping Stone", groupedOptions: copingOptions, options: copingFlat, value: row.stone })} />
+                  </F>
+                  <F label="Edge"><Sel value={row.edge} onChange={v => updateCoping(i, "edge", v)} options={C_ED} /></F>
+                  <F label="Size"><Sel value={row.size} onChange={v => updateCoping(i, "size", v)} options={C_SZ} /></F>
+                  <F label="Linear ft"><I value={row.linearFt} onChange={v => updateCoping(i, "linearFt", v)} type="number" /></F>
+                  <F label="Sq ft / Pcs"><Calc>{csf(row.linearFt, row.size, row.edge).toFixed(1)} ft² · {cpcs(row.linearFt, row.size, row.edge)} pcs</Calc></F>
+                </div>
+              </div>
+            ))}
+          </div>
+          <AddBtn onClick={addCoping} label="Add coping row" />
+        </Sec>
+
+        {/* ─── RAISED SURFACES ─── */}
+        <Sec title="Raised Surfaces" icon="🪨" open={open.surface} onToggle={() => toggle("surface")}>
+          <div className="mt-3 space-y-3">
+            <F label="Supplier"><Sel value={data.surface.supplier} onChange={chgSurfSup} options={SUPS} /></F>
+            <F label="Type">
+              <PkBtn value={data.surface.series} placeholder="Tap to search type..." onClick={() => setSearch({ section: "surface", rowIdx: 0, field: "series", title: "Surface Type", options: veneerSeries, value: data.surface.series })} />
+            </F>
+            <F label="Color">
+              {veneerColors(data.surface.series).length > 0 ?
+                <PkBtn value={data.surface.color} placeholder="Tap to search color..." onClick={() => setSearch({ section: "surface", rowIdx: 0, field: "color", title: "Surface Color", options: veneerColors(data.surface.series), value: data.surface.color })} /> :
+                <I value={data.surface.color} onChange={v => setData({ ...data, surface: { ...data.surface, color: v } })} placeholder="Select type first" />
+              }
+            </F>
+            <div className="grid grid-cols-2 gap-3">
+              <F label="Size"><Sel value={data.surface.size} onChange={v => setData({ ...data, surface: { ...data.surface, size: v } })} options={S_SZ} /></F>
+              <F label="Linear ft"><I value={data.surface.linearFt} onChange={v => setData({ ...data, surface: { ...data.surface, linearFt: v } })} type="number" /></F>
+            </div>
+            <Calc>{data.surface.linearFt} ft² → <strong>{(data.surface.linearFt * OV).toFixed(1)} ft²</strong> w/ overage</Calc>
+          </div>
+        </Sec>
+
+        {/* ─── SUMMARY ─── */}
+        <Sec title="Order Summary" icon="📋" open={open.summary} onToggle={() => toggle("summary")} accent>
+          <p className="text-xs text-stone-400 mt-3 mb-3">15% overage included</p>
+          <div className="space-y-2.5">
+            {items.map((it, i) => (
+              <div key={i} className="flex items-center justify-between py-3 px-4 bg-white rounded-xl border border-amber-200">
+                <div className="min-w-0 flex-1 mr-3"><div className="font-medium text-stone-700 text-sm">{it.label}</div><div className="text-xs text-stone-400 truncate">{it.sub}</div></div>
+                <div className="text-right flex-shrink-0"><span className="text-xl font-bold text-stone-800 font-mono tabular-nums">{it.val}</span><span className="text-xs text-stone-400 ml-1">{it.unit}</span></div>
+              </div>
+            ))}
+          </div>
+          <div className="pt-3 mt-3 border-t border-amber-200 text-xs text-stone-400 space-y-0.5">
+            <div><span className="text-stone-500 font-medium">Tile:</span> {data.tile.supplier}</div>
+            <div><span className="text-stone-500 font-medium">Coping:</span> {data.coping.supplier}</div>
+            <div><span className="text-stone-500 font-medium">Surface:</span> {data.surface.supplier}</div>
+          </div>
+        </Sec>
+
+        {/* ─── GENERATE PO ─── */}
+        <button onClick={handlePO} className="w-full py-4 rounded-2xl text-white font-semibold text-base flex items-center justify-center gap-3 active:scale-[0.98] transition-all mb-2 min-h-[56px]" style={{ background: "linear-gradient(135deg,#292524,#44403c)" }}>
+          <svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M6 2h8l4 4v10a2 2 0 01-2 2H6a2 2 0 01-2-2V4a2 2 0 012-2z" stroke="currentColor" strokeWidth="1.5" /><path d="M14 2v4h4M8 10h4M8 13h6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" /></svg>
+          Generate Purchase Order{uniqSups.length > 1 ? `s (${uniqSups.length})` : ""}
+        </button>
+        {uniqSups.length > 1 && <p className="text-xs text-stone-400 text-center mb-4">Separate POs for {uniqSups.join(" & ")}</p>}
+      </div>)}
+
+      {/* ═══════ EQUIPMENT PAGE ═══════ */}
+      {page === "equipment" && (
+        <EquipmentPage clientName={data.clientName} address={data.address} />
+      )}
+
+      {/* ─── SEARCH MODAL ─── */}
+      <SearchModal
+        open={!!search}
+        onClose={() => setSearch(null)}
+        title={search?.title || ""}
+        groupedOptions={search?.groupedOptions}
+        options={search?.options}
+        value={search?.value}
+        onSelect={handleSearchSelect}
+      />
+
+      {/* ─── PO MODALS ─── */}
+      {poData && (poData.pos.length === 1 ?
+        <POSheet po={poData.pos[0]} today={poData.today} client={poData.client} address={poData.address} onClose={() => setPoData(null)} /> :
+        <POPicker pos={poData.pos} today={poData.today} client={poData.client} address={poData.address} onClose={() => setPoData(null)} />
+      )}
+    </div>
+  );
+}
+
+
+const root = ReactDOM.createRoot(document.getElementById("root"));
+root.render(<App />);
+  </script>
+</body>
+</html>
