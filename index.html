@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 <html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-<title>Dynamic Custom Pools v71</title>
+<title>Dynamic Custom Pools v73</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.9/babel.min.js"></script>
@@ -1121,6 +1121,7 @@ function WorkOrderPage({ clientName, address: masterAddress, onAddressChange, on
     fullChip: false,
     trimTile: "", trimOther: "", trimColorStyle: "", trimMeasurement: "", trimRows: "",
     groutBrand: "SGM", groutName: "",
+    drainCover: "",
   });
   const [woTile, setWoTile] = useState({ supplier: "Aqua Bella", rows: [{ label: "Pool", name: "", color: "", size: "6x6", linearFt: 0, sameAsPool: false }] });
   const [woCoping, setWoCoping] = useState({ supplier: "Aqua Bella", rows: [{ label: "Pool", stone: "", edge: "Paver", size: "12x24", linearFt: 0, sameAsPool: false }] });
@@ -1181,12 +1182,13 @@ function WorkOrderPage({ clientName, address: masterAddress, onAddressChange, on
 
     let rows = "";
     rows += secHead("Job Info");
-    rows += r("Type", wo.jobType) + r("Client", clientName) + r("Date Requested", wo.isAsap ? "ASAP" : wo.dateRequested) + notesRow;
+    rows += r("Type", wo.jobType) + r("Client", clientName) + r("Date Requested", wo.isAsap ? "ASAP" : (wo.dateRequested ? new Date(wo.dateRequested + "T12:00:00").toLocaleDateString("en-US", { month: "2-digit", day: "2-digit", year: "numeric" }) : "")) + notesRow;
     rows += `<tr><td colspan="2" style="padding:6px"></td></tr>`;
 
     rows += secHead("Plaster");
     rows += r("Type", wo.plasterPool.type) + r("Color/Style", wo.plasterPool.colorStyle) + r("Measurement", wo.plasterPool.measurement) + r("Spa", wo.plasterSpa ? "Yes" : "No");
     if (wo.jobType === "Remodel") rows += r("Full Chip", wo.fullChip ? "Yes" : "No");
+    rows += r("Drain Cover", wo.drainCover);
     const trimValPdf = wo.trimTile === "Other" ? wo.trimOther : wo.trimTile;
     rows += r("Trim Tile", trimValPdf) + r("Trim Color/Style", wo.trimColorStyle) + r("Trim Measurement", wo.trimMeasurement) + r("Trim Rows", wo.trimRows);
     rows += `<tr><td colspan="2" style="padding:6px"></td></tr>`;
@@ -1273,7 +1275,7 @@ function WorkOrderPage({ clientName, address: masterAddress, onAddressChange, on
     secTitle("Job Info");
     kvRow("Type", wo.jobType);
     kvRow("Client", clientName);
-    kvRow("Date Requested", wo.isAsap ? "ASAP" : wo.dateRequested);
+    kvRow("Date Requested", wo.isAsap ? "ASAP" : (wo.dateRequested ? new Date(wo.dateRequested + "T12:00:00").toLocaleDateString("en-US", { month: "2-digit", day: "2-digit", year: "numeric" }) : ""));
     kvRow("Special Notes", wo.specialNotes);
     y += 4;
 
@@ -1284,6 +1286,7 @@ function WorkOrderPage({ clientName, address: masterAddress, onAddressChange, on
     kvRow("Measurement", wo.plasterPool.measurement);
     kvRow("Spa", wo.plasterSpa ? "Yes" : "No");
     if (wo.jobType === "Remodel") kvRow("Full Chip", wo.fullChip ? "Yes" : "No");
+    kvRow("Drain Cover", wo.drainCover);
     const trimVal = wo.trimTile === "Other" ? wo.trimOther : wo.trimTile;
     kvRow("Trim Tile", trimVal);
     kvRow("Trim Color/Style", wo.trimColorStyle);
@@ -1363,6 +1366,8 @@ function WorkOrderPage({ clientName, address: masterAddress, onAddressChange, on
               {[true, false].map(v => (<button key={String(v)} onClick={() => u("plasterSpa", v)} className={`py-3 rounded-xl font-bold text-base transition-all ${wo.plasterSpa === v ? "bg-stone-800 text-white" : "bg-white border border-stone-200 text-stone-500 active:bg-stone-100"}`}>{v ? "Yes" : "No"}</button>))}
             </div>
             {wo.jobType === "Remodel" && (<><div className="h-px bg-stone-200 mt-3" /><div className="mt-3 text-xs font-semibold text-stone-500 uppercase tracking-wider">Full Chip</div><div className="grid grid-cols-2 gap-2 mt-2">{[true, false].map(v => (<button key={String(v)} onClick={() => u("fullChip", v)} className={`py-3 rounded-xl font-bold text-base transition-all ${wo.fullChip === v ? "bg-stone-800 text-white" : "bg-white border border-stone-200 text-stone-500 active:bg-stone-100"}`}>{v ? "Yes" : "No"}</button>))}</div></>)}
+            <div className="h-px bg-stone-200 mt-3" />
+            <div className="mt-3"><F label="Drain Cover Type"><Sel value={wo.drainCover} onChange={v => u("drainCover", v)} options={["Regular", "Pebble Top"]} noOther /></F></div>
           </div>
           <div className="bg-stone-50 rounded-xl p-4">
             <div className="text-xs font-semibold text-stone-500 uppercase tracking-wider mb-2">Trim Tile</div>
@@ -1987,6 +1992,6 @@ function App() {
   );
 }
 
-const root = ReactDOM.createRoot(document.getElementById("root"));
-root.render(<App />);
-</script></body></html>
+</script>
+</body>
+</html>
