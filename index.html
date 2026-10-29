@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 <html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-<title>Dynamic Custom Pools v73</title>
+<title>Dynamic Custom Pools v74</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.9/babel.min.js"></script>
@@ -552,9 +552,11 @@ function StubOutPage({ data, onChange, clientName, address, onSave }) {
   const handleGenPO = () => {
     const today = new Date().toLocaleDateString("en-US", { year: "numeric", month: "2-digit", day: "2-digit" });
     const poNum = `SO-${Date.now().toString(36).toUpperCase()}`;
+    const skimPartNums = { White: "PAC-25-1629", Tan: "PAC-25-1715" };
+    const skimPN = skimPartNums[data.skimmerColor] || "";
     const lines = [
       { item: "Jet Bodies", qty: data.jetBodies },
-      { item: "Skimmer" + (data.skimmerColor ? " (" + data.skimmerColor + ")" : ""), qty: data.skimmers },
+      { item: "Pentair Skimmer" + (data.skimmerColor ? " (" + data.skimmerColor + ")" : ""), qty: data.skimmers, partNum: skimPN },
       { item: `Main Drain${data.mainDrains > 1 ? "s" : ""}`, qty: data.mainDrains },
     ];
     if (data.lightedBubbler) lines.push({ item: "Lighted Bubbler", qty: 1 });
@@ -652,7 +654,7 @@ function StubOutPage({ data, onChange, clientName, address, onSave }) {
               </div>
               {poData.lines.map((l, i) => (
                 <div key={i} className="flex items-center justify-between py-3 border-b border-stone-100">
-                  <div className="min-w-0 flex-1 mr-3"><div className="text-sm font-medium text-stone-700">{l.item}</div></div>
+                  <div className="min-w-0 flex-1 mr-3"><div className="text-sm font-medium text-stone-700">{l.item}</div>{l.partNum && <div className="text-xs text-stone-400 mt-0.5">{l.partNum}</div>}</div>
                   <div className="text-right flex-shrink-0"><div className="font-mono font-bold text-lg text-stone-800">{l.qty}</div><div className="text-xs text-stone-400">ea</div></div>
                 </div>
               ))}
@@ -662,8 +664,8 @@ function StubOutPage({ data, onChange, clientName, address, onSave }) {
                 const soSubject = encodeURIComponent(`Dynamic Custom Pools - ${poData.address} - Stub out order`);
                 const soBody = encodeURIComponent("Hello,\n\nHere is a new Stub out order. Please process and have in will call ready for Pick up. Please let me know if you have any questions.");
                 openEmail(`https://outlook.office.com/mail/deeplink/compose?to=ricky.arredondo@scppool.com;ecom151@scppool.com&subject=${soSubject}&body=${soBody}`);
-                const trs = poData.lines.map(l => `<tr><td style="padding:10px 12px;border-bottom:1px solid #e7e5e4">${l.item}</td><td style="padding:10px 12px;border-bottom:1px solid #e7e5e4;text-align:center;font-weight:700">${l.qty}</td></tr>`).join("");
-                const stubHtml = `<div style="font-family:-apple-system,sans-serif;padding:24px;color:#1c1917;font-size:13px">${poHeader("Stub Out Purchase Order", "", poData.address, poData.client, poData.today)}<table style="width:100%;border-collapse:collapse"><thead><tr><th style="text-align:left;padding:8px 12px;font-size:11px;text-transform:uppercase;color:#78716c;border-bottom:2px solid #d6d3d1">Item</th><th style="text-align:center;padding:8px 12px;font-size:11px;text-transform:uppercase;color:#78716c;border-bottom:2px solid #d6d3d1">Qty</th></tr></thead><tbody>${trs}</tbody></table><div style="margin-top:48px;display:flex;gap:40px"><div style="flex:1;border-top:1px solid #78716c;padding-top:6px;font-size:11px;color:#78716c">Authorized Signature</div><div style="flex:1;border-top:1px solid #78716c;padding-top:6px;font-size:11px;color:#78716c">Date</div></div></div>`;
+                const trs = poData.lines.map(l => `<tr><td style="padding:10px 12px;border-bottom:1px solid #e7e5e4">${l.item}</td><td style="padding:10px 12px;border-bottom:1px solid #e7e5e4;color:#78716c;font-size:12px">${l.partNum || ""}</td><td style="padding:10px 12px;border-bottom:1px solid #e7e5e4;text-align:center;font-weight:700">${l.qty}</td></tr>`).join("");
+                const stubHtml = `<div style="font-family:-apple-system,sans-serif;padding:24px;color:#1c1917;font-size:13px">${poHeader("Stub Out Purchase Order", "", poData.address, poData.client, poData.today)}<table style="width:100%;border-collapse:collapse"><thead><tr><th style="text-align:left;padding:8px 12px;font-size:11px;text-transform:uppercase;color:#78716c;border-bottom:2px solid #d6d3d1">Item</th><th style="text-align:left;padding:8px 12px;font-size:11px;text-transform:uppercase;color:#78716c;border-bottom:2px solid #d6d3d1">Part #</th><th style="text-align:center;padding:8px 12px;font-size:11px;text-transform:uppercase;color:#78716c;border-bottom:2px solid #d6d3d1">Qty</th></tr></thead><tbody>${trs}</tbody></table><div style="margin-top:48px;display:flex;gap:40px"><div style="flex:1;border-top:1px solid #78716c;padding-top:6px;font-size:11px;color:#78716c">Authorized Signature</div><div style="flex:1;border-top:1px solid #78716c;padding-top:6px;font-size:11px;color:#78716c">Date</div></div></div>`;
                 try { downloadPDF(stubHtml, `${poData.address || poData.client} - Stub Out PO`); } catch(e) { console.error("PDF error:", e); }
                 if (onSave) onSave("stubout", "Stub Out PO", stubHtml, `${poData.address || poData.client} - Stub Out PO`);
               }} className="w-full py-4 rounded-xl bg-stone-800 text-white font-semibold text-base active:bg-stone-900 transition-colors flex items-center justify-center gap-2 min-h-[52px]">
@@ -694,7 +696,7 @@ const EQUIP_CATS = [
   { id: "2way_valves", label: "2 Way Valves", icon: "🔧", def: "2 Way Valves", defQty: 3 },
   { id: "check_valves", label: "Standard Check Valves", icon: "🔧", def: "Standard Check Valve", defQty: 1 },
   { id: "chem_check_valves", label: "Chemical Resistant Check Valves", icon: "⚗️", def: "Chemical Resistant Check Valve", defQty: 1 },
-  { id: "autofill", label: "Autofill", icon: "🚰", def: "SPG-56-5001 Autofill w/ Tan Lid", defQty: 1 },
+  { id: "autofill", label: "Autofill", icon: "🚰", def: "SuperPro Autofill w/ White Lid", defQty: 1 },
   { id: "water_stop", label: "Clear Water Stop", icon: "🔒", def: "SPG-251-1183", defQty: 3 },
   { id: "extras", label: "Extras", icon: "📦", def: "", defQty: 0 },
 ];
@@ -714,7 +716,7 @@ const JANDY_MODELS = {
   "2way_valves": ["NeverLube 2-2.5\" 2-Port","NeverLube 1.5-2\" 2-Port"],
   check_valves: ["Standard Check Valve"],
   chem_check_valves: ["Chemical Resistant Check Valve"],
-  autofill: ["SPG-56-5001 Autofill w/ Tan Lid","SPG-56-5001 Autofill w/ White Lid"],
+  autofill: ["SuperPro Autofill w/ White Lid","SuperPro Autofill w/ Grey Lid","SuperPro Autofill w/ Tan Lid"],
   extras: [],
 };
 
@@ -733,7 +735,7 @@ const PENTAIR_MODELS = {
   "2way_valves": ["2-Port 2-2.5\" Diverter Valve","2-Port 1.5-2\" Diverter Valve"],
   check_valves: ["Standard Check Valve"],
   chem_check_valves: ["Chemical Resistant Check Valve"],
-  autofill: ["Pentair Autofill w/ Tan Lid","Pentair Autofill w/ White Lid"],
+  autofill: ["Pentair Autofill w/ White Lid","Pentair Autofill w/ Tan Lid"],
   extras: [],
 };
 
@@ -843,10 +845,11 @@ const PART_NUMS = {
   "Chemical Resistant Check Valve": "SPG-56-1820",
   "Standard Check Valve": "JDY-56-4084",
   // Autofill
-  "SPG-56-5001 Autofill w/ Tan Lid": "SPG-56-5001",
-  "SPG-56-5001 Autofill w/ White Lid": "SPG-56-5002",
-  "Pentair Autofill w/ Tan Lid": "PEN-56-T15T",
+  "SuperPro Autofill w/ White Lid": "SPG-56-5000",
+  "SuperPro Autofill w/ Grey Lid": "SPG-56-5001",
+  "SuperPro Autofill w/ Tan Lid": "SPG-56-5002",
   "Pentair Autofill w/ White Lid": "PEN-56-T15W",
+  "Pentair Autofill w/ Tan Lid": "PEN-56-T15T",
 };
 
 const BRANDS = ["Jandy","Pentair"];
@@ -1993,6 +1996,7 @@ function App() {
 }
 
 ReactDOM.createRoot(document.getElementById("root")).render(<App />);
+
 </script>
 </body>
 </html>
