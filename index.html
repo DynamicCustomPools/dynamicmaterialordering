@@ -215,8 +215,14 @@ body{font-family:var(--f-body)!important;background:var(--bg)!important;color:va
 /* Filter tag pills in past orders */
 button[class*="rounded-full"][class*="text-xs"]{border-radius:999px}
 
-/* Ensure select dropdown arrow works in dark mode */
-select{color-scheme:light dark}
+/* Force all text to black */
+*{color:#0B0D0F}
+select,option,input,textarea,button,label,span,div,p,h1,h2,h3,h4,h5,h6,a,td,th,li{color:#0B0D0F}
+select{color-scheme:light;background-color:#fff}
+option{color:#0B0D0F;background:#fff}
+.qb-input{color:#0B0D0F}
+input::placeholder{color:#999!important}
+select{color:#0B0D0F!important}
 
 </style>
 </head>
